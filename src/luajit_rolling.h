@@ -76,5 +76,8 @@ LUA_API const char *luaJIT_profile_dumpstack(lua_State *L, const char *fmt,
 /* Enforce (dynamic) linker error for version mismatches. Call from main. */
 LUA_API void LUAJIT_VERSION_SYM(void);
 
+/* Non-zero for builds using LUAJIT_ENABLE_LUA52COMPAT. */
+LUA_API int luaJIT_compat52;
+
 #error "DO NOT USE luajit_rolling.h -- only include build-generated luajit.h"
 #endif

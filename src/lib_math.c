@@ -100,6 +100,65 @@ LJLIB_ASM_(math_max)		LJLIB_REC(math_minmax IR_MAX)
 LJLIB_PUSH(3.14159265358979323846) LJLIB_SET(pi)
 LJLIB_PUSH(1e310) LJLIB_SET(huge)
 
+#define MATH_INT53_MAX 9007199254740992.0
+
+static int math_isinteger53(cTValue *o, lua_Number *np)
+{
+  lua_Number n;
+  if (!tvisnumber(o))
+    return 0;
+  n = numberVnum(o);
+  if (n != n || n < -MATH_INT53_MAX || n > MATH_INT53_MAX ||
+      lj_vm_floor(n) != n)
+    return 0;
+  if (np) *np = n;
+  return 1;
+}
+
+static int math_tointeger(lua_State *L)
+{
+  lua_Number n;
+  int ok = L->base < L->top && math_isinteger53(L->base, &n);
+  L->top = L->base + 1;
+  if (ok)
+    setnumV(L->base, n);
+  else
+    setnilV(L->base);
+  return 1;
+}
+
+static int math_type(lua_State *L)
+{
+  cTValue *o = L->base;
+  const char *kind;
+  if (o >= L->top || !tvisnumber(o)) {
+    lua_pushnil(L);
+    return 1;
+  }
+  kind = math_isinteger53(o, NULL) ? "integer" : "float";
+  lua_pushstring(L, kind);
+  return 1;
+}
+
+static lua_Number math_checkinteger53(lua_State *L, int narg)
+{
+  cTValue *o = L->base + narg - 1;
+  lua_Number n;
+  if (o >= L->top || !math_isinteger53(o, &n))
+    luaL_argerror(L, narg, "number has no integer representation");
+  return n;
+}
+
+static int math_ult(lua_State *L)
+{
+  lua_Number m = math_checkinteger53(L, 1);
+  lua_Number n = math_checkinteger53(L, 2);
+  int result = m >= 0 ? (n < 0 || m < n) : (n < 0 && m < n);
+  L->top = L->base + 1;
+  setboolV(L->base, result);
+  return 1;
+}
+
 /* ------------------------------------------------------------------------ */
 
 /* This implements a Tausworthe PRNG with period 2^223. Based on:
@@ -196,10 +255,22 @@ LJLIB_CF(math_randomseed)
 
 #include "lj_libdef.h"
 
+static const luaL_Reg math_compat53[] = {
+  { "tointeger", math_tointeger },
+  { "type", math_type },
+  { "ult", math_ult },
+  { NULL, NULL }
+};
+
 LUALIB_API int luaopen_math(lua_State *L)
 {
   PRNGState *rs = (PRNGState *)lua_newuserdata(L, sizeof(PRNGState));
   lj_prng_seed_fixed(rs);
   LJ_LIB_REG(L, LUA_MATHLIBNAME, math);
+  luaL_setfuncs(L, math_compat53, 0);
+  lua_pushnumber(L, MATH_INT53_MAX);
+  lua_setfield(L, -2, "maxinteger");
+  lua_pushnumber(L, -MATH_INT53_MAX);
+  lua_setfield(L, -2, "mininteger");
   return 1;
 }

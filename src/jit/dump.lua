@@ -610,6 +610,9 @@ local function dump_record(tr, func, pc, depth)
   local line
   if pc >= 0 then
     line = bcline(func, pc, recprefix)
+    if dumpmode.L and pc > 0 then
+      line = sub(line, 1, -2).."       ("..fmtfunc(func, pc)..")\n"
+    end
     if dumpmode.H then line = gsub(line, "[<>&]", html_escape) end
   else
     line = "0000 "..recprefix.." FUNCC      \n"

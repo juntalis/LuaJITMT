@@ -602,11 +602,12 @@ LJLIB_CF(jit_util_funcinfo)
   return 1;
 }
 
-/* local ins, m = jit.util.funcbc(func, pc) */
+/* local ins, m [, line] = jit.util.funcbc(func, pc [, lineinfo]) */
 LJLIB_CF(jit_util_funcbc)
 {
   GCproto *pt = lj_lib_checkLproto(L, 1, 0);
   BCPos pc = (BCPos)lj_lib_checkint(L, 2);
+  int lineinfo = L->base+2 < L->top && tvistruecond(L->base+2);
   if (pc < pt->sizebc) {
     BCIns ins = proto_bc(pt)[pc];
     BCOp op = bc_op(ins);
@@ -614,6 +615,11 @@ LJLIB_CF(jit_util_funcbc)
     setintV(L->top, ins);
     setintV(L->top+1, lj_bc_mode[op]);
     L->top += 2;
+    if (lineinfo) {
+      setintV(L->top, lj_debug_line(pt, pc));
+      L->top++;
+      return 3;
+    }
     return 2;
   }
   return 0;

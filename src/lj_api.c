@@ -33,6 +33,9 @@
 #include "lj_strscan.h"
 #include "lj_strfmt.h"
 
+LUA_API int luaJIT_compat52;
+int luaJIT_compat52 = LJ_52;
+
 /* -- Common helper functions --------------------------------------------- */
 
 #define lj_checkapi_slot(idx) \
@@ -693,6 +696,12 @@ LUA_API const lua_Number *lua_version(lua_State *L)
 }
 
 /* -- Stack manipulation -------------------------------------------------- */
+
+LUA_API int lua_absindex(lua_State *L, int idx)
+{
+  return (idx > 0 || idx <= LUA_REGISTRYINDEX) ?
+	 idx : lua_gettop(L) + idx + 1;
+}
 
 LUA_API int lua_gettop(lua_State *L)
 {
@@ -1358,6 +1367,31 @@ LUA_API size_t lua_objlen(lua_State *L, int idx)
   return len;
 }
 
+LUA_API size_t lua_rawlen(lua_State *L, int idx)
+{
+  LJStateClaim claim;
+  lua_State *errL = api_errstate(L);
+  TValue *o;
+  ptrdiff_t rootoffs;
+  size_t len;
+  if (!lj_state_resumeclaim(L, lj_thr_current_id(G(L)), &claim))
+    lj_err_callermsg(errL, "thread busy");
+  api_checkstack1_claimed(L, errL, &claim);
+  o = api_stackroot_push_index(L, idx);
+  rootoffs = savestack(L, o);
+  if (tvisstr(o))
+    len = strV(o)->len;
+  else if (tvistab(o))
+    len = (size_t)lj_tab_len_rooted(L, o);
+  else if (tvisudata(o))
+    len = udataV(o)->len;
+  else
+    len = 0;
+  L->top = restorestack(L, rootoffs);
+  lj_state_dropresumeclaim(&claim);
+  return len;
+}
+
 LUA_API lua_CFunction lua_tocfunction(lua_State *L, int idx)
 {
   LJStateClaim claim;
@@ -1950,6 +1984,41 @@ LUA_API void lua_concat(lua_State *L, int n)
     incr_top(L);
   }
   /* else n == 1: nothing to do. */
+  lj_state_dropresumeclaim(&claim);
+}
+
+LUA_API void lua_len(lua_State *L, int idx)
+{
+  LJStateClaim claim;
+  lua_State *errL = api_errstate(L);
+  TValue *o, *v;
+  ptrdiff_t rootoffs;
+  if (!lj_state_resumeclaim(L, lj_thr_current_id(G(L)), &claim))
+    lj_err_callermsg(errL, "thread busy");
+  api_checkstack1_claimed(L, errL, &claim);
+  o = api_stackroot_push_index(L, idx);
+  rootoffs = savestack(L, o);
+  if (tvisstr(o)) {
+    setnumV(o, strV(o)->len);
+  } else if (tvistab(o) && !LJ_52) {
+    setnumV(o, lj_tab_len_rooted(L, o));
+  } else {
+    TValue *base = lj_meta_len(L, o);
+    if (base == NULL) {
+      o = restorestack(L, rootoffs);
+      setnumV(o, lj_tab_len_rooted(L, o));
+    } else {
+      L->top = base + 2;
+      api_vm_call_claimed(L, base, 1+1, &claim);
+      L->top -= 2+LJ_FR2;
+      v = L->top+1+LJ_FR2;
+      o = restorestack(L, rootoffs);
+      copyTV(L, o, v);
+    }
+  }
+  o = restorestack(L, rootoffs);
+  lj_state_stack_pubtv(L, L, o);
+  L->top = o + 1;
   lj_state_dropresumeclaim(&claim);
 }
 
@@ -3083,4 +3152,14 @@ LUA_API void lua_setallocf(lua_State *L, lua_Alloc f, void *ud)
   if (arena)
     la_store32_rel(&g->allocf_arena, 1);
 #endif
+}
+
+LUA_API void lua_setexdata(lua_State *L, void *data)
+{
+  lj_state_exdata_rel(L, data);
+}
+
+LUA_API void *lua_getexdata(lua_State *L)
+{
+  return lj_state_exdata_acq(L);
 }

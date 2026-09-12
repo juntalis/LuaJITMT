@@ -162,6 +162,75 @@ LUALIB_API void luaL_setfuncs(lua_State *L, const luaL_Reg *l, int nup)
   lua_pop(L, nup);  /* Remove upvalues. */
 }
 
+LUALIB_API lua_Integer luaL_len(lua_State *L, int idx)
+{
+  lua_Integer len;
+  int isnum;
+  lua_len(L, idx);
+  len = lua_tointegerx(L, -1, &isnum);
+  if (!isnum)
+    luaL_error(L, "object length is not a number");
+  lua_pop(L, 1);
+  return len;
+}
+
+LUALIB_API int luaL_getsubtable(lua_State *L, int idx, const char *fname)
+{
+  idx = lua_absindex(L, idx);
+  lua_getfield(L, idx, fname);
+  if (lua_istable(L, -1))
+    return 1;
+  lua_pop(L, 1);
+  lua_newtable(L);
+  lua_pushvalue(L, -1);
+  lua_setfield(L, idx, fname);
+  return 0;
+}
+
+LUALIB_API const char *luaL_tolstring(lua_State *L, int idx, size_t *len)
+{
+  if (!luaL_callmeta(L, idx, "__tostring")) {
+    switch (lua_type(L, idx)) {
+    case LUA_TNUMBER:
+    case LUA_TSTRING:
+      lua_pushvalue(L, idx);
+      break;
+    case LUA_TBOOLEAN:
+      lua_pushstring(L, lua_toboolean(L, idx) ? "true" : "false");
+      break;
+    case LUA_TNIL:
+      lua_pushliteral(L, "nil");
+      break;
+    default:
+      lua_pushfstring(L, "%s: %p", luaL_typename(L, idx),
+		      lua_topointer(L, idx));
+      break;
+    }
+  }
+  return lua_tolstring(L, -1, len);
+}
+
+LUALIB_API void luaL_requiref(lua_State *L, const char *modname,
+			      lua_CFunction openf, int glb)
+{
+  luaL_checkstack(L, 3, "not enough stack slots");
+  (void)luaL_getsubtable(L, LUA_REGISTRYINDEX, "_LOADED");
+  lua_getfield(L, -1, modname);
+  if (!lua_toboolean(L, -1)) {
+    lua_pop(L, 1);
+    lua_pushcfunction(L, openf);
+    lua_pushstring(L, modname);
+    lua_call(L, 1, 1);
+    lua_pushvalue(L, -1);
+    lua_setfield(L, -3, modname);
+  }
+  lua_remove(L, -2);
+  if (glb) {
+    lua_pushvalue(L, -1);
+    lua_setglobal(L, modname);
+  }
+}
+
 LUALIB_API const char *luaL_gsub(lua_State *L, const char *s,
 				 const char *p, const char *r)
 {
@@ -245,6 +314,12 @@ LUALIB_API void luaL_pushresult(luaL_Buffer *B)
   B->lvl = 1;
 }
 
+LUALIB_API void luaL_pushresultsize(luaL_Buffer *B, size_t sz)
+{
+  luaL_addsize(B, sz);
+  luaL_pushresult(B);
+}
+
 LUALIB_API void luaL_addvalue(luaL_Buffer *B)
 {
   lua_State *L = B->L;
@@ -273,14 +348,10 @@ LUALIB_API void luaL_buffinit(lua_State *L, luaL_Buffer *B)
 
 #define FREELIST_REF	0
 
-/* Convert a stack index to an absolute index. */
-#define abs_index(L, i) \
-  ((i) > 0 || (i) <= LUA_REGISTRYINDEX ? (i) : lua_gettop(L) + (i) + 1)
-
 LUALIB_API int luaL_ref(lua_State *L, int t)
 {
   int ref;
-  t = abs_index(L, t);
+  t = lua_absindex(L, t);
   if (lua_isnil(L, -1)) {
     lua_pop(L, 1);  /* remove from stack */
     return LUA_REFNIL;  /* `nil' has a unique fixed reference */
@@ -302,7 +373,7 @@ LUALIB_API int luaL_ref(lua_State *L, int t)
 LUALIB_API void luaL_unref(lua_State *L, int t, int ref)
 {
   if (ref >= 0) {
-    t = abs_index(L, t);
+    t = lua_absindex(L, t);
     lua_rawgeti(L, t, FREELIST_REF);
     lua_rawseti(L, t, ref);  /* t[ref] = t[FREELIST_REF] */
     lua_pushinteger(L, ref);

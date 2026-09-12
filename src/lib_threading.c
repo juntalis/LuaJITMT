@@ -23,6 +23,9 @@
 #include "lj_ccallback.h"
 #if LJ_HASFFI
 #include "lj_ccall.h"
+#include "lj_cdata.h"
+#include "lj_cconv.h"
+#include "lj_ctype.h"
 #endif
 #include "lj_err.h"
 #include "lj_gc.h"
@@ -2053,6 +2056,42 @@ static void threading_gc_stats_push(lua_State *L)
 
 LJLIB_PUSH(top-4) LJLIB_SET(!)  /* Set environment to thread methods. */
 
+#if LJ_HASFFI
+LJLIB_CF(threading_exdata) LJLIB_REC(.)
+{
+  ptrdiff_t nargs = L->top - L->base;
+  if (nargs == 0) {
+    GCcdata *cd;
+    ctype_loadffi(L);
+    cd = lj_cdata_new_(L, CTID_P_VOID, CTSIZE_PTR);
+    cdata_setptr(cdataptr(cd), CTSIZE_PTR, lj_state_exdata_acq(L));
+    setcdataV(L, L->top, cd);
+    lj_state_stack_pubtv(L, L, L->top);
+    L->top++;
+    lj_gc_check(L);
+    return 1;
+  }
+  if (nargs != 1)
+    lj_err_arg(L, 2, LJ_ERR_NOVAL);
+  if (tvisnil(L->base)) {
+    lj_state_exdata_rel(L, NULL);
+    return 0;
+  }
+  if (!tviscdata(L->base))
+    lj_err_argt(L, 1, LUA_TCDATA);
+  {
+    CTState *cts;
+    void *data;
+    ctype_loadffi(L);
+    cts = ctype_cts(L);
+    lj_cconv_ct_tv_id_l(L, cts, CTID_P_VOID, (uint8_t *)&data,
+			L->base, CCF_ARG(1));
+    lj_state_exdata_rel(L, data);
+  }
+  return 0;
+}
+#endif
+
 LJLIB_CF(threading_cpucount)		LJLIB_REC(.)
 {
   setintV(L->top++, (int32_t)lj_thr_cpucount());
@@ -2555,6 +2594,18 @@ int lj_threading_detach_callback_unwind(lua_State *L)
 }
 
 #include "lj_libdef.h"
+
+#if LJ_HASFFI
+LUALIB_API int luaopen_thread_exdata(lua_State *L)
+{
+  lua_getglobal(L, "require");
+  lua_pushliteral(L, "threading");
+  lua_call(L, 1, 1);
+  lua_getfield(L, -1, "exdata");
+  lua_remove(L, -2);
+  return 1;
+}
+#endif
 
 LJ_FUNC int luaopen_threading(lua_State *L)
 {

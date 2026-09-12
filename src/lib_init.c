@@ -27,6 +27,7 @@ static const luaL_Reg lj_lib_load[] = {
   { LUA_DBLIBNAME,	luaopen_debug },
   { LUA_BITLIBNAME,	luaopen_bit },
   { LUA_JITLIBNAME,	luaopen_jit },
+  { LUA_UTF8LIBNAME,	luaopen_utf8 },
   { NULL,		NULL }
 };
 
@@ -34,6 +35,7 @@ static const luaL_Reg lj_lib_preload[] = {
   { "threading",	luaopen_threading },
 #if LJ_HASFFI
   { LUA_FFILIBNAME,	luaopen_ffi },
+  { "thread.exdata",	luaopen_thread_exdata },
 #endif
   { NULL,		NULL }
 };

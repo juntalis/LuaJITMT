@@ -60,16 +60,39 @@ local function ctlsub(c)
   end
 end
 
+-- Stable formatter shared by instruction comments and constant tables.
+local function formatk(kc)
+  local typ = type(kc)
+  if typ == "string" then
+    return format(#kc > 40 ? '"%.40s"~' : '"%s"', gsub(kc, "%c", ctlsub))
+  elseif typ == "number" then
+    return format("%s", kc)
+  elseif typ == "proto" then
+    local fi = funcinfo(kc)
+    return fi.ffid ? vmdef.ffnames[fi.ffid] : fi.loc
+  elseif typ == "table" then
+    return "table"
+  end
+  return typ
+end
+
 -- Return one bytecode line.
-local function bcline(func, pc, prefix)
-  local ins, m = funcbc(func, pc)
+local function bcline(func, pc, prefix, lineinfo)
+  local ins, m, l = funcbc(func, pc, lineinfo)
   if not ins then return end
   local ma, mb, mc = m & 7, (m >> 3) & 15, (m >> 7) & 15
   local a = (ins >> 8) & 0xff
   local oidx = 6 * (ins & 0xff)
   local op = sub(bcnames, oidx+1, oidx+6)
-  local s = format("%04d %s %-6s %3s ",
-    pc, prefix or "  ", op, ma == 0 ? "" : a)
+  local s
+  if lineinfo then
+    local loc = l != 0 ? "["..l.."]" : "[-]"
+    s = format("%04d %7s %s %-6s %3s ",
+      pc, loc, prefix or "  ", op, ma == 0 ? "" : a)
+  else
+    s = format("%04d %s %-6s %3s ",
+      pc, prefix or "  ", op, ma == 0 ? "" : a)
+  end
   local d = ins >> 16
   if mc == 13 then -- BCMjump
     return format("%s=> %04d\n", s, pc+d-0x7fff)
@@ -81,18 +104,13 @@ local function bcline(func, pc, prefix)
   end
   local kc
   if mc == 10 then -- BCMstr
-    kc = funck(func, -d-1)
-    kc = format(#kc > 40 ? '"%.40s"~' : '"%s"', gsub(kc, "%c", ctlsub))
+    kc = formatk(funck(func, -d-1))
   elseif mc == 9 then -- BCMnum
     kc = funck(func, d)
     if op == "TSETM " then kc -= 2^52 end
+    kc = formatk(kc)
   elseif mc == 12 then -- BCMfunc
-    local fi = funcinfo(funck(func, -d-1))
-    if fi.ffid then
-      kc = vmdef.ffnames[fi.ffid]
-    else
-      kc = fi.loc
-    end
+    kc = formatk(funck(func, -d-1))
   elseif mc == 5 then -- BCMuv
     kc = funcuvname(func, d)
   end
@@ -122,20 +140,35 @@ local function bctargets(func)
 end
 
 -- Dump bytecode instructions of a function.
-local function bcdump(func, out, all)
+local function bcdump(func, out, all, options)
   if not out then out = stdout end
+  if options == true then options = { lineinfo = true } end
+  options = type(options) == "table" ? options : {}
+  local lineinfo, constants = options.lineinfo, options.constants
   local fi = funcinfo(func)
   if all and fi.children then
     for n=-1,-1000000000,-1 do
       local k = funck(func, n)
       if not k then break end
-      if type(k) == "proto" then bcdump(k, out, true) end
+      if type(k) == "proto" then bcdump(k, out, true, options) end
     end
   end
   out:write(format("-- BYTECODE -- %s-%d\n", fi.loc, fi.lastlinedefined))
+  if constants then
+    for n=-1,-1000000000,-1 do
+      local kc = funck(func, n)
+      if not kc then break end
+      out:write(format("KGC %d %s\n", -(n + 1), formatk(kc)))
+    end
+    for n=0,1000000000 do
+      local kc = funck(func, n)
+      if not kc then break end
+      out:write(format("KN %d %s\n", n, formatk(kc)))
+    end
+  end
   local target = bctargets(func)
   for pc=1,1000000000 do
-    local s = bcline(func, pc, target[pc] and "=>")
+    local s = bcline(func, pc, target[pc] and "=>", lineinfo)
     if not s then break end
     out:write(s)
   end
@@ -185,4 +218,3 @@ return {
   off = bclistoff,
   start = bcliston -- For -j command line option.
 }
-

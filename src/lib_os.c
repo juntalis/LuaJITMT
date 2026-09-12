@@ -270,7 +270,11 @@ static int getfield(lua_State *L, const char *key, int d)
 static struct tm *os_date_tm(time_t *t, int utc, struct tm *rtm)
 {
 #if LJ_TARGET_POSIX
-  return utc ? gmtime_r(t, rtm) : localtime_r(t, rtm);
+  if (utc)
+    return gmtime_r(t, rtm);
+  /* POSIX does not require localtime_r() to refresh state after TZ changes. */
+  tzset();
+  return localtime_r(t, rtm);
 #elif LJ_TARGET_WINDOWS
   return (utc ? gmtime_s(rtm, t) : localtime_s(rtm, t)) == 0 ? rtm : NULL;
 #else

@@ -28,6 +28,8 @@ local function usage()
   io.stderr:write[[
 Save LuaJIT bytecode: luajit -b[options] input output
   -l        Only list bytecode.
+  -L        Only list bytecode with source line numbers.
+  -k        Only list bytecode with constant tables.
   -s        Strip debug info (default).
   -g        Keep debug info.
   -W        Generate stock 32 bit/non-GC64 bytecode (not loadable here).
@@ -543,9 +545,9 @@ end
 
 ------------------------------------------------------------------------------
 
-local function bclist(ctx, input, output)
+local function bclist(ctx, input, output, options)
   local f = readfile(ctx, input)
-  require("jit.bc").dump(f, savefile(output, "w"), true)
+  require("jit.bc").dump(f, savefile(output, "w"), true, options)
 end
 
 local function bcsave(ctx, input, output)
@@ -572,6 +574,7 @@ local function docmd(...)
   local arg = {...}
   local n = 1
   local list = false
+  local listopts = {}
   local ctx = {
     mode = "bt", arch = jit.arch, os = jit.os:lower(),
     type = false, modname = false, string = false,
@@ -587,6 +590,12 @@ local function docmd(...)
 	local opt = a:sub(m, m)
 	if opt == "l" then
 	  list = true
+	elseif opt == "L" then
+	  list = true
+	  listopts.lineinfo = true
+	elseif opt == "k" then
+	  list = true
+	  listopts.constants = true
 	elseif opt == "s" then
 	  strip = "s"
 	elseif opt == "g" then
@@ -622,7 +631,7 @@ local function docmd(...)
   ctx.mode = ctx.mode .. strip .. gc64
   if list then
     if #arg == 0 or #arg > 2 then usage() end
-    bclist(ctx, arg[1], arg[2] or "-")
+    bclist(ctx, arg[1], arg[2] or "-", listopts)
   else
     if #arg != 2 then usage() end
     bcsave(ctx, arg[1], arg[2])

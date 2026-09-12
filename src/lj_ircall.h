@@ -7,6 +7,7 @@
 #define _LJ_IRCALL_H
 
 #include "lj_obj.h"
+#include "lj_state.h"
 #include "lj_ir.h"
 #include "lj_jit.h"
 
@@ -225,6 +226,8 @@ typedef struct CCallInfo {
   _(ANY,	lj_gc_tbar_trace_g,	3,   S, NIL, 0) \
   _(ANY,	lj_mem_newgco,		2,  FA, PGC, CCI_L|CCI_T) \
   _(ANY,	lj_thr_cpucount,	0,   S, INT, 0) \
+  /* Side-effecting classification keeps the acquire read observable. */ \
+  _(ANY,	lj_state_exdata_forjit, 1, S, PTR, CCI_L) \
   _(ANY,	lj_prng_u64d,		1,  FS, NUM, CCI_CASTU64) \
   _(ANY,	lj_vm_modi,		2,  FN, INT, 0) \
   _(ANY,	log10,			1,   N, NUM, XA_FP) \

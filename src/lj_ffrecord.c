@@ -32,6 +32,10 @@
 #include "lj_strscan.h"
 #include "lj_strfmt.h"
 #include "lj_serialize.h"
+#if LJ_HASFFI
+#include "lj_cdata.h"
+#include "lj_ctype.h"
+#endif
 
 /* Some local macros to save typing. Undef'd at the end. */
 #define IR(ref)			(&J->cur.ir[(ref)])
@@ -889,6 +893,22 @@ static void LJ_FASTCALL recff_math_random(jit_State *J, RecordFFData *rd)
 }
 
 /* -- Threading library fast functions ------------------------------------ */
+
+#if LJ_HASFFI
+static void LJ_FASTCALL recff_threading_exdata(jit_State *J,
+						RecordFFData *rd)
+{
+  if (!J->base[0]) {
+    TRef ptr = lj_ir_call(J, IRCALL_lj_state_exdata_forjit);
+    TRef id = lj_ir_kint(J, CTID_P_VOID);
+    J->base[0] = emitir(IRTG(IR_CNEWI, IRT_CDATA), id, ptr);
+    UNUSED(rd);
+    return;
+  }
+  /* The release store is deliberately interpreted after a trace exit. */
+  lj_trace_err_info(J, LJ_TRERR_NYIFFU);
+}
+#endif
 
 static void LJ_FASTCALL recff_threading_cpucount(jit_State *J, RecordFFData *rd)
 {

@@ -21,3 +21,5 @@ src/.lj-test-build-signature
 release-artifacts/
 .release-home/
 .release-wine/
+/build/
+/cmake-build-*/

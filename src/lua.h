@@ -103,6 +103,9 @@ typedef LUA_NUMBER lua_Number;
 /* type for integer functions */
 typedef LUA_INTEGER lua_Integer;
 
+/* Unsigned counterpart used by the Lua 5.3-compatible packing API. */
+typedef size_t lua_Unsigned;
+
 
 
 /*
@@ -119,6 +122,7 @@ LUA_API lua_CFunction (lua_atpanic) (lua_State *L, lua_CFunction panicf);
 ** basic stack manipulation
 */
 LUA_API int   (lua_gettop) (lua_State *L);
+LUA_API int   (lua_absindex) (lua_State *L, int idx);
 LUA_API void  (lua_settop) (lua_State *L, int idx);
 LUA_API void  (lua_pushvalue) (lua_State *L, int idx);
 LUA_API void  (lua_remove) (lua_State *L, int idx);
@@ -149,6 +153,7 @@ LUA_API lua_Integer     (lua_tointeger) (lua_State *L, int idx);
 LUA_API int             (lua_toboolean) (lua_State *L, int idx);
 LUA_API const char     *(lua_tolstring) (lua_State *L, int idx, size_t *len);
 LUA_API size_t          (lua_objlen) (lua_State *L, int idx);
+LUA_API size_t          (lua_rawlen) (lua_State *L, int idx);
 LUA_API lua_CFunction   (lua_tocfunction) (lua_State *L, int idx);
 LUA_API void	       *(lua_touserdata) (lua_State *L, int idx);
 LUA_API lua_State      *(lua_tothread) (lua_State *L, int idx);
@@ -241,6 +246,10 @@ LUA_API int   (lua_error) (lua_State *L);
 LUA_API int   (lua_next) (lua_State *L, int idx);
 
 LUA_API void  (lua_concat) (lua_State *L, int n);
+LUA_API void  (lua_len) (lua_State *L, int idx);
+
+LUA_API void  (lua_setexdata) (lua_State *L, void *data);
+LUA_API void *(lua_getexdata) (lua_State *L);
 
 LUA_API lua_Alloc (lua_getallocf) (lua_State *L, void **ud);
 LUA_API void lua_setallocf (lua_State *L, lua_Alloc f, void *ud);
@@ -261,7 +270,7 @@ LUA_API void lua_setallocf (lua_State *L, lua_Alloc f, void *ud);
 
 #define lua_pushcfunction(L,f)	lua_pushcclosure(L, (f), 0)
 
-#define lua_strlen(L,i)		lua_objlen(L, (i))
+#define lua_strlen(L,i)		lua_rawlen(L, (i))
 
 #define lua_isfunction(L,n)	(lua_type(L, (n)) == LUA_TFUNCTION)
 #define lua_istable(L,n)	(lua_type(L, (n)) == LUA_TTABLE)
@@ -277,6 +286,7 @@ LUA_API void lua_setallocf (lua_State *L, lua_Alloc f, void *ud);
 
 #define lua_setglobal(L,s)	lua_setfield(L, LUA_GLOBALSINDEX, (s))
 #define lua_getglobal(L,s)	lua_getfield(L, LUA_GLOBALSINDEX, (s))
+#define lua_pushglobaltable(L)	lua_pushvalue(L, LUA_GLOBALSINDEX)
 
 #define lua_tostring(L,i)	lua_tolstring(L, (i), NULL)
 

@@ -18,6 +18,7 @@ local suites = {
   suite("m7_ffi"),
   suite("m8_weak"),
   suite("m9_m10_gc"),
+  suite("compat_extensions"),
   suite("release")
 }
 

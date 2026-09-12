@@ -1279,6 +1279,7 @@ LUA_API lua_State *lua_newstate(lua_Alloc allocf, void *allocd)
   L->dummy_ffid = FF_C;
   setmref(L->glref, g);
   lj_state_owner_word_rel(L, 0);
+  lj_state_exdata_store_rlx(L, NULL);
   lj_state_gcprep_next_rel(L, NULL);
   lj_state_gcprep_state_store_rlx(L, LJ_STATE_GCPREP_NONE);
   lj_state_grayagain_cycle_store_rlx(L, 0);
@@ -1430,6 +1431,8 @@ static lua_State *state_new_withenv_at_anchor(lua_State *L, GCtab *env,
   setmref(L1->maxstack, NULL);
   L1->base = L1->top = NULL;
   L1->cframe = NULL;
+  /* Snapshot inheritance precedes every READY/header/root publication. */
+  lj_state_exdata_store_rlx(L1, lj_state_exdata_acq(L));
   L1->tg_hint = NULL;
   lj_state_thread_registry_next_rel(L1, NULL);
   lj_state_gcprep_next_rel(L1, NULL);
@@ -1465,6 +1468,11 @@ static lua_State *state_new_withenv_at_anchor(lua_State *L, GCtab *env,
     lj_gc_pubobjobj(L, L1, env);
   lj_assertL(iswhite(obj2gco(L1)), "new thread object is not white");
   return L1;
+}
+
+void *LJ_FASTCALL lj_state_exdata_forjit(lua_State *L)
+{
+  return lj_state_exdata_acq(L);
 }
 
 lua_State *lj_state_new_withenv(lua_State *L, GCtab *env,

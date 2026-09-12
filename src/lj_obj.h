@@ -2841,6 +2841,7 @@ struct lua_State {
   GCRef mt_thread;	/* threading.thread userdata for this state. */
   lua_State *thread_next;  /* Lockless shutdown registry link. */
   lua_State *gcprep_next;  /* Terminal-preparation queue link. */
+  void *exdata;		/* Atomic opaque embedding data. */
   void *cframe;		/* End of C stack frame chain. */
   MSize stacksize;	/* True stack size (incl. LJ_STACK_EXTRA). */
   TGState *tg_hint;	/* Owning/running TG block, if attached. */
@@ -2852,6 +2853,23 @@ struct lua_State {
   uint32_t scan_needscan_counted;  /* Exact counted NEEDSCAN membership. */
   uint32_t gcprep_state;  /* Terminal THREAD destructor handoff state. */
 };
+
+/* The embedding application owns the pointee. Release/acquire only publishes
+** the pointer value; LuaJIT never traces, dereferences or frees it. */
+static LJ_AINLINE void *lj_state_exdata_acq(const lua_State *L)
+{
+  return la_loadptr_acq((void *const *)&L->exdata);
+}
+
+static LJ_AINLINE void lj_state_exdata_rel(lua_State *L, void *data)
+{
+  la_storeptr_rel((void **)&L->exdata, data);
+}
+
+static LJ_AINLINE void lj_state_exdata_store_rlx(lua_State *L, void *data)
+{
+  la_storeptr_rlx((void **)&L->exdata, data);
+}
 
 LJ_STATIC_ASSERT(sizeof(LJStateOwner) == 8);
 LJ_STATIC_ASSERT((offsetof(lua_State, thr_owner) & 7u) == 0);
