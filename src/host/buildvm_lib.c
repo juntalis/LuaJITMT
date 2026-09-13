@@ -110,6 +110,11 @@ static int find_ffofs(BuildCtx *ctx, const char *name)
 
 static void libdef_func(BuildCtx *ctx, char *p, int arg)
 {
+  if (ffid > 255) {
+    fprintf(stderr, "Error: fast function ID exceeds 255 for %s; "
+	    "register non-recorded extensions as ordinary C functions\n", p);
+    exit(1);
+  }
   if (arg != LIBINIT_CF)
     ffasmfunc++;
   if (ctx->mode == BUILD_libdef) {
