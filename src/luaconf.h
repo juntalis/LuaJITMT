@@ -128,9 +128,9 @@
 /* Linkage of public API functions. */
 #if defined(LUA_BUILD_AS_DLL)
 #if defined(LUA_CORE) || defined(LUA_LIB)
-#define LUA_API		extern __declspec(dllexport)
+#define LUA_API		__declspec(dllexport)
 #else
-#define LUA_API		extern __declspec(dllimport)
+#define LUA_API		__declspec(dllimport)
 #endif
 #elif (defined(__ELF__) || defined(__MACH__) || defined(__psp2__)) && !((defined(__sun__) && defined(__svr4__)) || defined(__CELLOS_LV2__))
 #define LUA_API		extern __attribute__((visibility("default")))

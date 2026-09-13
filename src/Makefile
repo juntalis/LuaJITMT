@@ -485,9 +485,7 @@ ifeq (Windows,$(HOST_SYS)$(HOST_MSYS))
 else
   GIT_RELVER= [ -e ../.git ] && $(GIT) show -s --format=%ct >luajit_relver.txt 2>/dev/null || cat ../.relver >luajit_relver.txt 2>/dev/null || :
 endif
-# logs/HEAD changes whenever HEAD advances and avoids an empty '*' expansion
-# bug in some native Windows GNU Make builds.
-GIT_DEP= $(wildcard ../.git/HEAD ../.git/logs/HEAD ../.git/packed-refs)
+GIT_DEP= $(wildcard ../.git/HEAD ../.git/refs/heads/*)
 
 BUILDVM_O= host/buildvm.o host/buildvm_asm.o host/buildvm_peobj.o \
 	   host/buildvm_lib.o host/buildvm_fold.o
@@ -642,7 +640,10 @@ depend:
 	  done
 	@$(HOST_CC) $(HOST_ACFLAGS) -MM *.c host/*.c | \
 	  sed -e "s| [^ ]*/dasm_\S*\.h||g" \
-	      -e "s|^\([^l ]\)|host/\1|" >Makefile.dep
+	      -e "s|^\([^l ]\)|host/\1|" \
+	      -e "s| lj_target_\S*\.h| lj_target_*.h|g" \
+	      -e "s| lj_emit_\S*\.h| lj_emit_*.h|g" \
+	      -e "s| lj_asm_\S*\.h| lj_asm_*.h|g" >Makefile.dep
 	@for file in $(ALL_HDRGEN); do \
 	  test -s $$file || $(HOST_RM) $$file; \
 	  done
@@ -666,7 +667,7 @@ host/buildvm_arch.h: $(DASM_DASC) $(MINILUA_DEP) lj_arch.h lua.h luaconf.h
 	$(E) "DYNASM    $@"
 	$(Q)$(DASM) $(DASM_FLAGS) -o $@ $(DASM_DASC)
 
-host/buildvm.o: $(wildcard $(DASM_DIR)/dasm_*.h)
+host/buildvm.o: $(DASM_DIR)/dasm_*.h
 
 $(BUILDVM_T): $(BUILDVM_O)
 	$(E) "HOSTLINK  $@"

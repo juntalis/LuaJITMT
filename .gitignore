@@ -23,3 +23,4 @@ release-artifacts/
 .release-wine/
 /build/
 /cmake-build-*/
+out/
