@@ -19,6 +19,12 @@
 
 #if defined(_MSC_VER) && !defined(__clang__)
 
+#if !defined(_M_X64) && !defined(_M_IX86)
+#error "lj_atomic.h MSVC backend assumes x86/x86-64 TSO for its compiler-only \
+  acquire/release barriers (_ReadBarrier/_WriteBarrier); this target's memory \
+  model needs real hardware fences (e.g. via MemoryBarrier()) before use."
+#endif
+
 #include <intrin.h>
 #include <windows.h>
 

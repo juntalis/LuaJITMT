@@ -301,6 +301,33 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
+# Stage 2d-bis: shared library "luajit-5.1" (luajit-5.1.dll on Windows).
+# Mirrors src/Makefile's Windows dynamic BUILDMODE (-DLUA_BUILD_AS_DLL on all
+# translation units so LUA_API resolves to dllexport for LUA_CORE/LUA_LIB
+# sources). Off by default since mixing static and shared luajit-5.1 outputs
+# in one build directory requires distinct archive/runtime names.
+# ---------------------------------------------------------------------------
+option(LUAJIT_BUILD_SHARED "Also build luajit-5.1.dll (shared library)" OFF)
+
+if(LUAJIT_BUILD_SHARED)
+  add_library(luajit-5.1-shared SHARED ${LJCORE_C} ${LJLIB_C} "${LJ_VM_OBJ}")
+  target_include_directories(luajit-5.1-shared PUBLIC "${LJ_SRC_DIR}")
+  target_compile_definitions(luajit-5.1-shared PRIVATE LUA_BUILD_AS_DLL)
+  add_dependencies(luajit-5.1-shared generate_lj_headers)
+  set_target_properties(luajit-5.1-shared PROPERTIES
+    RUNTIME_OUTPUT_NAME "luajit-5.1"
+    LIBRARY_OUTPUT_NAME "luajit-5.1"
+    ARCHIVE_OUTPUT_NAME "luajit-5.1-dll"
+  )
+  if(MSVC)
+    target_compile_definitions(luajit-5.1-shared PRIVATE _CRT_SECURE_NO_WARNINGS)
+    target_compile_options(luajit-5.1-shared PRIVATE /W3)
+  else()
+    target_compile_options(luajit-5.1-shared PRIVATE -Wall)
+  endif()
+endif()
+
+# ---------------------------------------------------------------------------
 # Stage 2e: luajit.exe CLI executable.
 # ---------------------------------------------------------------------------
 add_executable(luajit "${LJ_SRC_DIR}/luajit.c")
