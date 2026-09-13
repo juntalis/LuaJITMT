@@ -971,7 +971,7 @@ typedef struct LJGC2RootRange {
   void *hi;
 } LJGC2RootRange;
 
-typedef struct LJ_ALIGN(16) LJGC2RootDesc {
+typedef struct  LJ_ALIGN(16) LJGC2RootDesc {
   uint64_t control;  /* generation << 2 | LJGC2RootDescState. */
   uint32_t flags;
   uint32_t reserved;
