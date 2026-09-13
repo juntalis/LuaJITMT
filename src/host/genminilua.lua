@@ -48,7 +48,7 @@ collectgarbage dofile gcinfo getfenv getmetatable load print rawequal rawset
 select tostring xpcall
 foreach foreachi getn maxn setn
 popen tmpfile seek setvbuf __tostring
-clock date difftime execute getenv rename setlocale time tmpname
+clock date difftime execute rename setlocale time tmpname
 dump gfind len reverse
 LUA_LOADLIBNAME LUA_MATHLIBNAME LUA_DBLIBNAME
 ]], "%S+", function(name)
@@ -210,6 +210,7 @@ typedef unsigned __int64 U64;
 #else
 typedef unsigned long long U64;
 #endif
+#define luaI_openlib	luaL_openlib
 int _CRT_glob = 0;
 ]]}, {}
 

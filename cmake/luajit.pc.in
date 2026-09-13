@@ -1,0 +1,13 @@
+prefix=@LUAJIT_PC_PREFIX@
+exec_prefix=${prefix}
+libdir=@LUAJIT_PC_LIBDIR@
+includedir=@LUAJIT_PC_INCLUDEDIR@
+
+Name: LuaJIT
+Description: Just-in-time compiler for Lua
+URL: https://luajit.org
+Version: @LUAJIT_VERSION_STRING@
+Requires:
+Libs: -L${libdir} -lluajit-5.1
+Libs.private: -lm -ldl -pthread
+Cflags: -I${includedir}

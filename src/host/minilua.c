@@ -6982,11 +6982,16 @@ static int os_remove(lua_State*L){
 const char*filename=luaL_checkstring(L,1);
 return os_pushresult(L,remove(filename)==0,filename);
 }
+static int os_getenv(lua_State*L){
+lua_pushstring(L,getenv(luaL_checkstring(L,1)));
+return 1;
+}
 static int os_exit(lua_State*L){
 exit(luaL_optint(L,1,EXIT_SUCCESS));
 }
 static const luaL_Reg syslib[]={
 {"exit",os_exit},
+{"getenv",os_getenv},
 {"remove",os_remove},
 {NULL,NULL}
 };
