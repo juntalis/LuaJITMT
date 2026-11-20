@@ -1,0 +1,4 @@
+{
+    "workspace.library": ["etc"],
+    "diagnostics.disable": []
+}

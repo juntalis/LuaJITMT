@@ -64,20 +64,9 @@ static LJ_AINLINE void *err_os_restore_ptr(const ErrOSState *err, void *p)
 
 /* Carrier for the x64 external-unwind trampoline. The personality temporarily
 ** replaces callee-saved R12 with this pointer and saves the original value
-** here. The
-** trampoline restores all trace registers before entering the real target. */
+** here. The trampoline restores all trace registers before entering the real
+** target. */
 #if LJ_TARGET_X64
-typedef struct LJErrX64Carrier {
-  uint64_t os;
-  uintptr_t target;
-  uintptr_t r12;
-} LJErrX64Carrier;
-
-LJ_STATIC_ASSERT(sizeof(LJErrX64Carrier) == 24u);
-LJ_STATIC_ASSERT(offsetof(LJErrX64Carrier, os) == 0u);
-LJ_STATIC_ASSERT(offsetof(LJErrX64Carrier, target) == 8u);
-LJ_STATIC_ASSERT(offsetof(LJErrX64Carrier, r12) == 16u);
-
 static LJ_AINLINE void err_x64_carrier_set(LJErrX64Carrier *carrier,
 					   ASMFunction target,
 					   uintptr_t r12,
@@ -87,16 +76,6 @@ static LJ_AINLINE void err_x64_carrier_set(LJErrX64Carrier *carrier,
   carrier->target = (uintptr_t)lj_ptr_strip(target);
   carrier->r12 = r12;
 }
-#endif
-
-#if LJ_TARGET_WINDOWS
-#if defined(_MSC_VER)
-#define LJ_ERR_TLS __declspec(thread)
-#else
-#define LJ_ERR_TLS __thread
-#endif
-#else
-#define LJ_ERR_TLS LJ_TLS
 #endif
 
 /* Called only from assembler landing pads. This must finish with the Win32
@@ -590,16 +569,16 @@ LJ_FUNCA int lj_err_unwind_win(EXCEPTION_RECORD *rec,
 #error "NYI: Windows arch-specific unwinder for JIT-compiled code"
 #endif
 
-#if LJ_TARGET_X64
-static LJ_ERR_TLS LJErrX64Carrier err_win_jit_carrier;
-#endif
-
 /* Windows unwinder for JIT-compiled code. */
 static void err_unwind_win_jit(global_State *g, int errcode,
 			       const ErrOSState *err)
 {
   CONTEXT ctx;
   UNWIND_HISTORY_TABLE hist;
+#if LJ_TARGET_X64
+  TGState *tg = G2TG(g);
+  LJErrX64Carrier *carrier = &tg->err_win_jit_carrier;
+#endif
 
   memset(&hist, 0, sizeof(hist));
   RtlCaptureContext(&ctx);
@@ -612,12 +591,12 @@ static void err_unwind_win_jit(global_State *g, int errcode,
       uintptr_t stub = lj_trace_unwind(G2J(g), (uintptr_t)(addr - sizeof(MCode)), &exitno);
       if (stub) {  /* Jump to side exit to unwind the trace. */
 #if LJ_TARGET_X64
-	err_x64_carrier_set(&err_win_jit_carrier,
+	err_x64_carrier_set(carrier,
 				(ASMFunction)(uintptr_t)stub,
 				(uintptr_t)ctx.R12, err);
-	ctx.R12 = (DWORD64)(uintptr_t)&err_win_jit_carrier;
+	ctx.R12 = (DWORD64)(uintptr_t)carrier;
 	ctx.CONTEXT_REG_PC = (DWORD64)(uintptr_t)lj_vm_unwind_os_eh;
-	lj_tg_jit_exitcode_rel(G2TG(g), errcode);
+	lj_tg_jit_exitcode_rel(tg, errcode);
 #else
 	ctx.CONTEXT_REG_PC = stub;
 	G2J(g)->exitcode = errcode;

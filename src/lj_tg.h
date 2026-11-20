@@ -276,6 +276,20 @@ typedef struct ExitTrampolines ExitTrampolines;
 typedef struct TGRootAnchorBlock TGRootAnchorBlock;
 struct LexState;
 
+#if LJ_TARGET_X64
+/* Per-mutator carrier for the Windows x64 external-unwind trampoline. */
+typedef struct LJErrX64Carrier {
+  uint64_t os;
+  uintptr_t target;
+  uintptr_t r12;
+} LJErrX64Carrier;
+
+LJ_STATIC_ASSERT(sizeof(LJErrX64Carrier) == 24u);
+LJ_STATIC_ASSERT(offsetof(LJErrX64Carrier, os) == 0u);
+LJ_STATIC_ASSERT(offsetof(LJErrX64Carrier, target) == 8u);
+LJ_STATIC_ASSERT(offsetof(LJErrX64Carrier, r12) == 16u);
+#endif
+
 struct TGRootAnchorBlock {
   TGRootAnchorBlock *next;
   TValue slot[TG_ROOT_ANCHOR_SLOTS];
@@ -403,6 +417,9 @@ struct TGState {
   ** callback owner preserves every published event-substrate offset. */
   GCstr *jit_trace_flush_reason;
 #endif
+#if LJ_TARGET_WINDOWS && LJ_TARGET_X64 && LJ_UNWIND_JIT
+  LJErrX64Carrier err_win_jit_carrier;
+#endif
 };
 
 LJ_STATIC_ASSERT(sizeof(((GC2SSBNode *)0)->slot) == TG_GC2_SSB_BYTES);
@@ -514,7 +531,12 @@ LJ_STATIC_ASSERT(offsetof(TGState, jit_event_sessions) >=
 #endif
 LJ_STATIC_ASSERT(offsetof(TGState, vmevent_regkey) +
 		 sizeof(((TGState *)0)->vmevent_regkey) <= sizeof(TGState));
-#if LJ_HASJIT
+#if LJ_TARGET_WINDOWS && LJ_TARGET_X64 && LJ_UNWIND_JIT
+LJ_STATIC_ASSERT(sizeof(TGState) -
+		 (offsetof(TGState, err_win_jit_carrier) +
+		  sizeof(((TGState *)0)->err_win_jit_carrier)) <
+		 __alignof__(TGState));
+#elif LJ_HASJIT
 LJ_STATIC_ASSERT(sizeof(TGState) -
 		 (offsetof(TGState, jit_trace_flush_reason) +
 		  sizeof(((TGState *)0)->jit_trace_flush_reason)) <
